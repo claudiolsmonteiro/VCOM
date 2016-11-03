@@ -5,7 +5,10 @@
 #include <string>
 using namespace cv;
 using namespace std;
-
+string windowname = "Region of Interest";
+Mat image, imageEmpty, regionOfInterest, regionOfInterestEmpty, greyroi, greyroiempty, detected_edges;
+vector<Point> roi, rect;
+int size[2];
 struct contour_sorter // 'less' for contours
 {
 	bool operator ()(const vector<Point>& a, const vector<Point> & b)
@@ -18,11 +21,50 @@ struct contour_sorter // 'less' for contours
 };
 
 
+void matchTemplate(Point start, Point finish) {
+	cv::Mat input = regionOfInterestEmpty;
+	//cv::Mat input = regionOfInterest;
+	cv::Mat gray;
+	cv::cvtColor(input, gray, CV_BGR2GRAY);
 
-string windowname = "Region of Interest";
-Mat image, imageEmpty, regionOfInterest, regionOfInterestEmpty, greyroi, greyroiempty, detected_edges;
-vector<Point> roi, rect;
-int size[2];
+	cv::Mat templ = regionOfInterest(Rect(start, finish));
+
+	cv::Mat img = input;
+	cv::Mat result;
+	/// Create the result matrix
+	int result_cols = img.cols - templ.cols + 1;
+	int result_rows = img.rows - templ.rows + 1;
+
+	result.create(result_cols, result_rows, CV_32FC1);
+
+	int match_method = TM_SQDIFF_NORMED;
+
+	/// Do the Matching and Normalize
+	matchTemplate(img, templ, result, match_method);
+	//normalize(result, result, 0, 1, cv::NORM_MINMAX, -1, cv::Mat());
+
+	/// Localizing the best match with minMaxLoc
+	double minVal; double maxVal; cv::Point minLoc; cv::Point maxLoc;
+	cv::Point matchLoc;
+
+	minMaxLoc(result, &minVal, &maxVal, &minLoc, &maxLoc, cv::Mat());
+	/// For SQDIFF and SQDIFF_NORMED, the best matches are lower values. For all the other methods, the higher the better
+	if (match_method == CV_TM_SQDIFF || match_method == CV_TM_SQDIFF_NORMED)
+	{
+		matchLoc = minLoc;
+		cout << "MIN VAL " << minVal << endl;
+		cout << "MAX VAL " << maxVal << endl;
+		if (minVal <= 0.05) {
+			cv::rectangle(input, start, finish, CV_RGB(0, 255, 0), 2, 8, 0);
+			cv::rectangle(result, start, finish, CV_RGB(0, 255, 0), 2, 8, 0);
+		}
+		else {
+			cv::rectangle(input, start, finish, CV_RGB(255, 0, 0), 2, 8, 0);
+			cv::rectangle(result, start, finish, CV_RGB(255, 0, 0), 2, 8, 0);
+		}
+	}
+}
+
 void CallBackFunction(int event, int x, int y, int flags, void* point)
 {
 
@@ -119,48 +161,8 @@ int main(int argc, char** argv)
 
 	rectangle(regionOfInterestEmpty, Point(3, 0), Point(contours[0][0].x - 5, detected_edges.size().height / 2), CV_RGB(255, 255, 255), 1, 8, 0);
 	rectangle(regionOfInterest, Point(3, 0), Point(contours[0][0].x - 5, detected_edges.size().height / 2), CV_RGB(255, 255, 255), 1, 8, 0);
+	matchTemplate(Point(3, 0), Point(contours[0][0].x - 5, detected_edges.size().height / 2));
 
-	cv::Mat input = regionOfInterestEmpty;
-	//cv::Mat input = regionOfInterest;
-	cv::Mat gray;
-	cv::cvtColor(input, gray, CV_BGR2GRAY);
-
-	cv::Mat templ = regionOfInterest(Rect(Point(3, 0), Point(contours[0][0].x - 5, detected_edges.size().height / 2)));
-
-	cv::Mat img = input;
-	cv::Mat result;
-	/// Create the result matrix
-	int result_cols = img.cols - templ.cols + 1;
-	int result_rows = img.rows - templ.rows + 1;
-
-	result.create(result_cols, result_rows, CV_32FC1);
-
-	int match_method = TM_SQDIFF_NORMED;
-
-	/// Do the Matching and Normalize
-	matchTemplate(img, templ, result, match_method);
-	//normalize(result, result, 0, 1, cv::NORM_MINMAX, -1, cv::Mat());
-
-	/// Localizing the best match with minMaxLoc
-	double minVal; double maxVal; cv::Point minLoc; cv::Point maxLoc;
-	cv::Point matchLoc;
-
-	minMaxLoc(result, &minVal, &maxVal, &minLoc, &maxLoc, cv::Mat());
-	/// For SQDIFF and SQDIFF_NORMED, the best matches are lower values. For all the other methods, the higher the better
-	if (match_method == CV_TM_SQDIFF || match_method == CV_TM_SQDIFF_NORMED)
-	{
-		matchLoc = minLoc;
-		cout << "MIN VAL " << minVal << endl;
-		cout << "MAX VAL " << maxVal << endl;
-		if (minVal <= 0.05) {
-			cv::rectangle(input, matchLoc, cv::Point(matchLoc.x + templ.cols, matchLoc.y + templ.rows), CV_RGB(0,255,0), 2, 8, 0);
-			cv::rectangle(result, matchLoc, cv::Point(matchLoc.x + templ.cols, matchLoc.y + templ.rows), CV_RGB(0, 255, 0), 2, 8, 0);
-		}
-		else {
-			cv::rectangle(input, matchLoc, cv::Point(matchLoc.x + templ.cols, matchLoc.y + templ.rows), CV_RGB(255, 0, 0), 2, 8, 0);
-			cv::rectangle(result, matchLoc, cv::Point(matchLoc.x + templ.cols, matchLoc.y + templ.rows), CV_RGB(255, 0, 0), 2, 8, 0);
-		}
-	}
 
 
 
@@ -179,42 +181,7 @@ int main(int argc, char** argv)
 			rect.push_back(Point(contours[i][0].x + 3, 0));
 			rect.push_back(Point(contours[i + 1][0].x - 3, detected_edges.size().height / 2));
 
-			cv::Mat templ = regionOfInterest(Rect(Point(contours[i][0].x + 3, 0), Point(contours[i + 1][0].x - 3, detected_edges.size().height / 2)));
-
-			cv::Mat img = input;
-			cv::Mat result;
-			/// Create the result matrix
-			int result_cols = img.cols - templ.cols + 1;
-			int result_rows = img.rows - templ.rows + 1;
-
-			result.create(result_cols, result_rows, CV_32FC1);
-
-			int match_method = TM_SQDIFF_NORMED;
-
-			/// Do the Matching and Normalize
-			matchTemplate(img, templ, result, match_method);
-			//normalize(result, result, 0, 1, cv::NORM_MINMAX, -1, cv::Mat());
-
-			/// Localizing the best match with minMaxLoc
-			double minVal; double maxVal; cv::Point minLoc; cv::Point maxLoc;
-			cv::Point matchLoc;
-
-			minMaxLoc(result, &minVal, &maxVal, &minLoc, &maxLoc, cv::Mat());
-			/// For SQDIFF and SQDIFF_NORMED, the best matches are lower values. For all the other methods, the higher the better
-			if (match_method == CV_TM_SQDIFF || match_method == CV_TM_SQDIFF_NORMED)
-			{
-				matchLoc = minLoc;
-				cout << "MIN VAL " << minVal << endl;
-				cout << "MAX VAL " << maxVal << endl;
-				if (minVal <= 0.05) {
-					cv::rectangle(input, Point(contours[i][0].x + 3, 0), Point(contours[i + 1][0].x - 3, detected_edges.size().height / 2), CV_RGB(0, 255, 0), 2, 8, 0);
-					cv::rectangle(result, Point(contours[i][0].x + 3, 0), Point(contours[i + 1][0].x - 3, detected_edges.size().height / 2), CV_RGB(0, 255, 0), 2, 8, 0);
-				}
-				else {
-					cv::rectangle(input, Point(contours[i][0].x + 3, 0), Point(contours[i + 1][0].x - 3, detected_edges.size().height / 2), CV_RGB(255, 0, 0), 2, 8, 0);
-					cv::rectangle(result, Point(contours[i][0].x + 3, 0), Point(contours[i + 1][0].x - 3, detected_edges.size().height / 2), CV_RGB(255, 0, 0), 2, 8, 0);
-				}
-			}
+			matchTemplate(Point(contours[i][0].x + 3, 0), Point(contours[i + 1][0].x - 3, detected_edges.size().height / 2));
 		}
 		//rectangle(detected_edges, Point pt1, Point pt2, const Scalar& color, int thickness = 1, int lineType = 8, int shift = 0)
 	}
@@ -223,42 +190,7 @@ int main(int argc, char** argv)
 	rect.push_back(Point(contours[contours.size() - 1][0].x + 3, 0));
 	rect.push_back(Point(detected_edges.size().width - 3, detected_edges.size().height / 2));
 
-	templ = regionOfInterest(Rect(Point(contours[contours.size() - 1][0].x + 3, 0), Point(detected_edges.size().width - 3, detected_edges.size().height / 2)));
-
-	img = input;
-	result;
-	/// Create the result matrix
-	result_cols = img.cols - templ.cols + 1;
-	result_rows = img.rows - templ.rows + 1;
-
-	result.create(result_cols, result_rows, CV_32FC1);
-
-	match_method = TM_SQDIFF_NORMED;
-
-	/// Do the Matching and Normalize
-	matchTemplate(img, templ, result, match_method);
-	//normalize(result, result, 0, 1, cv::NORM_MINMAX, -1, cv::Mat());
-
-	/// Localizing the best match with minMaxLoc
-	//double minVal; double maxVal; cv::Point minLoc; cv::Point maxLoc;
-	//cv::Point matchLoc;
-
-	minMaxLoc(result, &minVal, &maxVal, &minLoc, &maxLoc, cv::Mat());
-	/// For SQDIFF and SQDIFF_NORMED, the best matches are lower values. For all the other methods, the higher the better
-	if (match_method == CV_TM_SQDIFF || match_method == CV_TM_SQDIFF_NORMED)
-	{
-		matchLoc = minLoc;
-		cout << "MIN VAL " << minVal << endl;
-		cout << "MAX VAL " << maxVal << endl;
-		if (minVal <= 0.05) {
-			cv::rectangle(input, Point(contours[contours.size() - 1][0].x + 3, 0), Point(detected_edges.size().width - 3, detected_edges.size().height / 2), CV_RGB(0, 255, 0), 2, 8, 0);
-			cv::rectangle(result, Point(contours[contours.size() - 1][0].x + 3, 0), Point(detected_edges.size().width - 3, detected_edges.size().height / 2), CV_RGB(0, 255, 0), 2, 8, 0);
-		}
-		else {
-			cv::rectangle(input, Point(contours[contours.size() - 1][0].x + 3, 0), Point(detected_edges.size().width - 3, detected_edges.size().height / 2), CV_RGB(255, 0, 0), 2, 8, 0);
-			cv::rectangle(result, Point(contours[contours.size() - 1][0].x + 3, 0), Point(detected_edges.size().width - 3, detected_edges.size().height / 2), CV_RGB(255, 0, 0), 2, 8, 0);
-		}
-	}
+	matchTemplate(Point(contours[contours.size() - 1][0].x + 3, 0), Point(detected_edges.size().width - 3, detected_edges.size().height / 2));
 	/// Show in a window
 	/*for (int i = 0; i < rect.size(); i++) {
 		cout << "I: " << i << "X: " << rect[i].x << "Y: " << rect[i].y << endl;
