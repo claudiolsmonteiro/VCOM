@@ -95,6 +95,78 @@ void detectparksize() {
 	}
 }
 */
+
+void detect_edges(Mat &imageToDetect){
+	GaussianBlur(greyroiempty, imageToDetect, Size(3, 3), 3);
+	Mat ignore;
+	double otsu_thresh_val = threshold(imageToDetect, ignore, 0, 255, CV_THRESH_BINARY + CV_THRESH_OTSU);
+	double high_thresh_val = otsu_thresh_val, lower_thresh_val = otsu_thresh_val * 0.5;
+	// Canny com valores definidos pelo otsu stackoverflow.com/questions/4292249/automatic-calculation-of-low-and-high-thresholds-for-the-canny-operation-in-open
+	Canny(imageToDetect, imageToDetect, lower_thresh_val, high_thresh_val);
+	//threshold(imageToDetect, imageToDetect, 0, 255, THRESH_BINARY | THRESH_OTSU);
+	dilate(imageToDetect, imageToDetect, MORPH_RECT);
+
+	//detectparksize();
+	vector<vector<Point> > contours;
+	vector<Vec4i> hierarchy;
+	findContours(imageToDetect, contours, hierarchy, CV_RETR_CCOMP, CV_CHAIN_APPROX_NONE, Point(0, 0));
+
+	/// Draw contours
+	RNG rng(12345);
+	Mat drawing = Mat::zeros(imageToDetect.size(), CV_8UC3);
+	for (int i = 0; i < contours.size(); i++)
+	{
+		Scalar color = Scalar(rng.uniform(0, 255), rng.uniform(0, 255), rng.uniform(0, 255));
+		drawContours(drawing, contours, i, color, 2, 8, hierarchy, 0, Point());
+		//cout << "countor " << contours[0][0].x << " " << contours[0][0].y << endl;
+		//cout << "countor " << contours[0][1].x << " " << contours[0][1].y << endl;
+		//cout << "countor " << contours.size() << " " << endl;
+	}
+	//cout << "contours" << contours[7][0].x << " " << contours[7][0].y << endl;
+	/*sort(contours.begin(), contours.end(), [](const vector<Point>& c1, const vector<Point>& c2) {
+	return contourArea(c1, false) < contourArea(c2, false);
+	});*/
+
+	std::sort(contours.begin(), contours.end(), contour_sorter());
+
+
+	rectangle(regionOfInterestEmpty, Point(3, 0), Point(contours[0][0].x - 5, imageToDetect.size().height / 2), CV_RGB(255, 255, 255), 1, 8, 0);
+	rectangle(regionOfInterest, Point(3, 0), Point(contours[0][0].x - 5, imageToDetect.size().height / 2), CV_RGB(255, 255, 255), 1, 8, 0);
+	matchTemplate(Point(3, 0), Point(contours[0][0].x - 5, imageToDetect.size().height / 2));
+
+	rect.push_back(Point(3, 0));
+	rect.push_back(Point(contours[0][0].x - 5, imageToDetect.size().height / 2));
+
+	for (int i = 0; i < contours.size() - 1; i++)
+	{
+		if ((contours[i + 1][0].x - contours[i][0].x) <= 10)
+			continue;
+		else {
+			rectangle(regionOfInterestEmpty, Point(contours[i][0].x + 3, 0), Point(contours[i + 1][0].x - 3, imageToDetect.size().height / 2), CV_RGB(255, 255, 255), 1, 8, 0);
+			rectangle(regionOfInterest, Point(contours[i][0].x + 3, 0), Point(contours[i + 1][0].x - 3, imageToDetect.size().height / 2), CV_RGB(255, 255, 255), 1, 8, 0);
+			rect.push_back(Point(contours[i][0].x + 3, 0));
+			rect.push_back(Point(contours[i + 1][0].x - 3, imageToDetect.size().height / 2));
+
+			matchTemplate(Point(contours[i][0].x + 3, 0), Point(contours[i + 1][0].x - 3, imageToDetect.size().height / 2));
+		}
+		//rectangle(imageToDetect, Point pt1, Point pt2, const Scalar& color, int thickness = 1, int lineType = 8, int shift = 0)
+	}
+	rectangle(regionOfInterestEmpty, Point(contours[contours.size() - 1][0].x + 3, 0), Point(imageToDetect.size().width - 3, imageToDetect.size().height / 2), CV_RGB(255, 255, 255), 1, 8, 0);
+	rectangle(regionOfInterest, Point(contours[contours.size() - 1][0].x + 3, 0), Point(imageToDetect.size().width - 3, imageToDetect.size().height / 2), CV_RGB(255, 255, 255), 1, 8, 0);
+	rect.push_back(Point(contours[contours.size() - 1][0].x + 3, 0));
+	rect.push_back(Point(imageToDetect.size().width - 3, imageToDetect.size().height / 2));
+
+	matchTemplate(Point(contours[contours.size() - 1][0].x + 3, 0), Point(imageToDetect.size().width - 3, imageToDetect.size().height / 2));
+	/// Show in a window
+	/*for (int i = 0; i < rect.size(); i++) {
+	cout << "I: " << i << "X: " << rect[i].x << "Y: " << rect[i].y << endl;
+	}*/
+
+	namedWindow("Contours", CV_WINDOW_AUTOSIZE);
+	imshow("Contours", drawing);
+
+}
+
 int main(int argc, char** argv)
 {
 	Point p;
@@ -115,100 +187,22 @@ int main(int argc, char** argv)
 	imageEmpty = imread("pls.jpg");
 	namedWindow("Parking Lot", WINDOW_AUTOSIZE);// Create a window for display.
 	namedWindow("Empty Parking Lot", WINDOW_AUTOSIZE);// Create a window for display.
-	setMouseCallback("Empty Parking Lot", CallBackFunction, NULL);
+	setMouseCallback("Parking Lot", CallBackFunction, NULL);
 	imshow("Parking Lot", image); // Show our image inside it.
 	imshow("Empty Parking Lot", imageEmpty); // Show our image inside it.
 	cout << "Select two points to create the region of interest and press ESC" << endl;
 	while (cv::waitKey(1) != 27);
-
 	cout << roi[0].x << " " << roi[0].y << " " << roi[1].x << " " << roi[1].y;
 
 	regionOfInterest = image(Rect(roi[0].x, roi[0].y, roi[1].x - roi[0].x, (roi[1].y - roi[0].y) * 2));
 	regionOfInterestEmpty = imageEmpty(Rect(roi[0].x, roi[0].y, roi[1].x - roi[0].x, (roi[1].y - roi[0].y) * 2));
 	cvtColor(regionOfInterestEmpty, greyroiempty, COLOR_RGB2GRAY);
-	GaussianBlur(greyroiempty, detected_edges, Size(3, 3), 3);
-	Mat ignore;
-	double otsu_thresh_val = threshold(detected_edges, ignore, 0, 255, CV_THRESH_BINARY + CV_THRESH_OTSU);
-	double high_thresh_val = otsu_thresh_val, lower_thresh_val = otsu_thresh_val * 0.5;
-	// Canny com valores definidos pelo otsu stackoverflow.com/questions/4292249/automatic-calculation-of-low-and-high-thresholds-for-the-canny-operation-in-open
-	Canny(detected_edges, detected_edges, lower_thresh_val, high_thresh_val);
-	//threshold(detected_edges, detected_edges, 0, 255, THRESH_BINARY | THRESH_OTSU);
-	dilate(detected_edges, detected_edges, MORPH_RECT);
+	
+	roi.clear();
+	
+	detect_edges(detected_edges);
 
-	//detectparksize();
-	vector<vector<Point> > contours;
-	vector<Vec4i> hierarchy;
-	findContours(detected_edges, contours, hierarchy, CV_RETR_CCOMP, CV_CHAIN_APPROX_NONE, Point(0, 0));
-
-	/// Draw contours
-	RNG rng(12345);
-	Mat drawing = Mat::zeros(detected_edges.size(), CV_8UC3);
-	for (int i = 0; i < contours.size(); i++)
-	{
-		Scalar color = Scalar(rng.uniform(0, 255), rng.uniform(0, 255), rng.uniform(0, 255));
-		drawContours(drawing, contours, i, color, 2, 8, hierarchy, 0, Point());
-		//cout << "countor " << contours[0][0].x << " " << contours[0][0].y << endl;
-		//cout << "countor " << contours[0][1].x << " " << contours[0][1].y << endl;
-		//cout << "countor " << contours.size() << " " << endl;
-	}
-	//cout << "contours" << contours[7][0].x << " " << contours[7][0].y << endl;
-	/*sort(contours.begin(), contours.end(), [](const vector<Point>& c1, const vector<Point>& c2) {
-		return contourArea(c1, false) < contourArea(c2, false);
-	});*/
-
-	std::sort(contours.begin(), contours.end(), contour_sorter());
-
-
-	rectangle(regionOfInterestEmpty, Point(3, 0), Point(contours[0][0].x - 5, detected_edges.size().height / 2), CV_RGB(255, 255, 255), 1, 8, 0);
-	rectangle(regionOfInterest, Point(3, 0), Point(contours[0][0].x - 5, detected_edges.size().height / 2), CV_RGB(255, 255, 255), 1, 8, 0);
-	matchTemplate(Point(3, 0), Point(contours[0][0].x - 5, detected_edges.size().height / 2));
-
-
-
-
-
-
-	rect.push_back(Point(3, 0));
-	rect.push_back(Point(contours[0][0].x - 5, detected_edges.size().height / 2));
-
-	for (int i = 0; i < contours.size() - 1; i++)
-	{
-		if ((contours[i + 1][0].x - contours[i][0].x) <= 10)
-			continue;
-		else {
-			rectangle(regionOfInterestEmpty, Point(contours[i][0].x + 3, 0), Point(contours[i + 1][0].x - 3, detected_edges.size().height / 2), CV_RGB(255, 255, 255), 1, 8, 0);
-			rectangle(regionOfInterest, Point(contours[i][0].x + 3, 0), Point(contours[i + 1][0].x - 3, detected_edges.size().height / 2), CV_RGB(255, 255, 255), 1, 8, 0);
-			rect.push_back(Point(contours[i][0].x + 3, 0));
-			rect.push_back(Point(contours[i + 1][0].x - 3, detected_edges.size().height / 2));
-
-			matchTemplate(Point(contours[i][0].x + 3, 0), Point(contours[i + 1][0].x - 3, detected_edges.size().height / 2));
-		}
-		//rectangle(detected_edges, Point pt1, Point pt2, const Scalar& color, int thickness = 1, int lineType = 8, int shift = 0)
-	}
-	rectangle(regionOfInterestEmpty, Point(contours[contours.size() - 1][0].x + 3, 0), Point(detected_edges.size().width - 3, detected_edges.size().height / 2), CV_RGB(255, 255, 255), 1, 8, 0);
-	rectangle(regionOfInterest, Point(contours[contours.size() - 1][0].x + 3, 0), Point(detected_edges.size().width - 3, detected_edges.size().height / 2), CV_RGB(255, 255, 255), 1, 8, 0);
-	rect.push_back(Point(contours[contours.size() - 1][0].x + 3, 0));
-	rect.push_back(Point(detected_edges.size().width - 3, detected_edges.size().height / 2));
-
-	matchTemplate(Point(contours[contours.size() - 1][0].x + 3, 0), Point(detected_edges.size().width - 3, detected_edges.size().height / 2));
-	/// Show in a window
-	/*for (int i = 0; i < rect.size(); i++) {
-		cout << "I: " << i << "X: " << rect[i].x << "Y: " << rect[i].y << endl;
-	}*/
-
-
-
-
-
-
-
-
-
-	namedWindow("Contours", CV_WINDOW_AUTOSIZE);
-	imshow("Contours", drawing);
-
-
-	destroyWindow("Display Window");
+	//destroyWindow("Display Window");
 
 	//namedWindow("ROI GREY", WINDOW_AUTOSIZE);// Create a window for display.
 
