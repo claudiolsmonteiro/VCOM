@@ -24,7 +24,6 @@ struct contour_sorter // 'less' for contours
 
 void matchTemplate(Point start, Point finish) {
 	cv::Mat input = regionOfInterestEmpty;
-	//cv::Mat input = regionOfInterest;
 	cv::Mat gray;
 	cv::cvtColor(input, gray, CV_BGR2GRAY);
 
@@ -53,8 +52,7 @@ void matchTemplate(Point start, Point finish) {
 	if (match_method == CV_TM_SQDIFF || match_method == CV_TM_SQDIFF_NORMED)
 	{
 		matchLoc = minLoc;
-		cout << "MIN VAL " << minVal << endl;
-		cout << "MAX VAL " << maxVal << endl;
+
 		if (minVal <= 0.05) {
 			cv::rectangle(input, start, finish, CV_RGB(0, 255, 0), 2, 8, 0);
 			cv::rectangle(result, start, finish, CV_RGB(0, 255, 0), 2, 8, 0);
@@ -79,23 +77,6 @@ void CallBackFunction(int event, int x, int y, int flags, void* point)
 	}
 
 }
-/*
-static double distanceBtwPoints(const cv::Point a, const cv::Point b)
-{
-	double xDiff = a.x - b.x;
-	double yDiff = a.y - b.y;
-
-	return std::sqrt((xDiff * xDiff) + (yDiff * yDiff));
-}
-*/
-/*
-void detectparksize() {
-	for (int i = 0; i <= detected_edges.size().width; i++) {
-		if (detected_edges.at<uchar>(i, 0) == 255)
-			cout << "OLA " << i << " " << endl;
-	}
-}
-*/
 
 void detect_edges(Mat &imageToDetect) {
 	GaussianBlur(greyroiempty, imageToDetect, Size(3, 3), 3);
@@ -104,10 +85,8 @@ void detect_edges(Mat &imageToDetect) {
 	double high_thresh_val = otsu_thresh_val, lower_thresh_val = otsu_thresh_val * 0.5;
 	// Canny com valores definidos pelo otsu stackoverflow.com/questions/4292249/automatic-calculation-of-low-and-high-thresholds-for-the-canny-operation-in-open
 	Canny(imageToDetect, imageToDetect, lower_thresh_val, high_thresh_val);
-	//threshold(imageToDetect, imageToDetect, 0, 255, THRESH_BINARY | THRESH_OTSU);
 	dilate(imageToDetect, imageToDetect, MORPH_RECT);
 
-	//detectparksize();
 	vector<vector<Point> > contours;
 	vector<Vec4i> hierarchy;
 	findContours(imageToDetect, contours, hierarchy, CV_RETR_CCOMP, CV_CHAIN_APPROX_NONE, Point(0, 0));
@@ -119,14 +98,7 @@ void detect_edges(Mat &imageToDetect) {
 	{
 		Scalar color = Scalar(rng.uniform(0, 255), rng.uniform(0, 255), rng.uniform(0, 255));
 		drawContours(drawing, contours, i, color, 2, 8, hierarchy, 0, Point());
-		//cout << "countor " << contours[0][0].x << " " << contours[0][0].y << endl;
-		//cout << "countor " << contours[0][1].x << " " << contours[0][1].y << endl;
-		//cout << "countor " << contours.size() << " " << endl;
 	}
-	//cout << "contours" << contours[7][0].x << " " << contours[7][0].y << endl;
-	/*sort(contours.begin(), contours.end(), [](const vector<Point>& c1, const vector<Point>& c2) {
-	return contourArea(c1, false) < contourArea(c2, false);
-	});*/
 
 	std::sort(contours.begin(), contours.end(), contour_sorter());
 
@@ -169,7 +141,6 @@ void detect_edges(Mat &imageToDetect) {
 				matchTemplate(Point(contours[i][0].x + 3, 0), Point(0, imageToDetect.size().height / 2));
 			}
 		}
-		//rectangle(imageToDetect, Point pt1, Point pt2, const Scalar& color, int thickness = 1, int lineType = 8, int shift = 0)
 	}
 	rectangle(regionOfInterestEmpty, Point(contours[contours.size() - 1][0].x + 3, 0), Point(imageToDetect.size().width - 3, imageToDetect.size().height / 2), CV_RGB(255, 255, 255), 1, 8, 0);
 	rectangle(regionOfInterest, Point(contours[contours.size() - 1][0].x + 3, 0), Point(imageToDetect.size().width - 3, imageToDetect.size().height / 2), CV_RGB(255, 255, 255), 1, 8, 0);
@@ -177,10 +148,6 @@ void detect_edges(Mat &imageToDetect) {
 	rect.push_back(Point(imageToDetect.size().width - 3, imageToDetect.size().height / 2));
 
 	matchTemplate(Point(contours[contours.size() - 1][0].x + 3, 0), Point(imageToDetect.size().width - 3, imageToDetect.size().height / 2));
-	/// Show in a window
-	/*for (int i = 0; i < rect.size(); i++) {
-	cout << "I: " << i << "X: " << rect[i].x << "Y: " << rect[i].y << endl;
-	}*/
 
 	namedWindow("Contours", CV_WINDOW_AUTOSIZE);
 	imshow("Contours", drawing);
@@ -193,7 +160,7 @@ int main(int argc, char** argv)
 	string imagename;
 	cout << "Please enter the name of the file: ";
 	getline(cin, imagename);
-	cout << "The value you entered is " << imagename;
+	cout << "The value you entered is " << imagename << "\n\n";
 	image = imread(imagename, CV_LOAD_IMAGE_COLOR); // Read the file
 
 	while (!image.data) // Check for invalid input
@@ -210,14 +177,13 @@ int main(int argc, char** argv)
 	setMouseCallback("Parking Lot", CallBackFunction, NULL);
 	imshow("Parking Lot", image); // Show our image inside it.
 	imshow("Empty Parking Lot", imageEmpty); // Show our image inside it.
-	cout << "Select two points to create the region of interest and press ESC" << endl;
+	cout << "Select two points to create the region of interest and press SPACE" << endl;
 
 	while (nRois <= 5) {
 
 		while (cv::waitKey(1) != 32);
 
 		if (nRois > 1) {
-			cout << "asd";
 			destroyWindow("Contours");
 			destroyWindow("ROI CANNY");
 			destroyWindow("REGION OF INTEREST EMPTY");
@@ -229,8 +195,6 @@ int main(int argc, char** argv)
 			detected_edges.release();
 		}
 
-		cout << roi[0].x << " " << roi[0].y << " " << roi[1].x << " " << roi[1].y;
-
 		regionOfInterest = image(Rect(roi[0].x, roi[0].y, roi[1].x - roi[0].x, (roi[1].y - roi[0].y) * 2));
 		regionOfInterestEmpty = imageEmpty(Rect(roi[0].x, roi[0].y, roi[1].x - roi[0].x, (roi[1].y - roi[0].y) * 2));
 		cvtColor(regionOfInterestEmpty, greyroiempty, COLOR_RGB2GRAY);
@@ -239,12 +203,6 @@ int main(int argc, char** argv)
 
 		detect_edges(detected_edges);
 
-		//destroyWindow("Display Window");
-
-		//namedWindow("ROI GREY", WINDOW_AUTOSIZE);// Create a window for display.
-
-		//namedWindow("ROY CANNY", WINDOW_AUTOSIZE);// Create a window for display.
-
 		namedWindow("ROI CANNY", WINDOW_AUTOSIZE);
 		namedWindow("REGION OF INTEREST EMPTY", WINDOW_AUTOSIZE);
 		namedWindow("REGION OF INTEREST", WINDOW_AUTOSIZE);
@@ -252,6 +210,8 @@ int main(int argc, char** argv)
 		imshow("ROI CANNY", detected_edges); // Show our image inside it.
 		imshow("REGION OF INTEREST EMPTY", regionOfInterestEmpty);
 		imshow("REGION OF INTEREST", regionOfInterest); // Show our image inside it.
+
+		cout << "ROI created\n\n";
 		
 		nRois++;
 
