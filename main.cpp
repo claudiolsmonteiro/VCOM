@@ -8,6 +8,7 @@ using namespace std;
 string windowname = "Region of Interest";
 Mat image, imageEmpty, regionOfInterest, regionOfInterestEmpty, greyroi, greyroiempty, detected_edges;
 vector<Point> roi, rect;
+int nRois = 1;
 int size[2];
 struct contour_sorter // 'less' for contours
 {
@@ -96,10 +97,10 @@ void detectparksize() {
 }
 */
 
-void detect_edges(Mat &imageToDetect){
+void detect_edges(Mat &imageToDetect) {
 	GaussianBlur(greyroiempty, imageToDetect, Size(3, 3), 3);
 	Mat ignore;
-	double otsu_thresh_val = threshold(imageToDetect, ignore, 0, 255, CV_THRESH_BINARY + CV_THRESH_OTSU);
+	double otsu_thresh_val = threshold(imageToDetect, ignore, 0, 255, CV_THRESH_BINARY | CV_THRESH_OTSU);
 	double high_thresh_val = otsu_thresh_val, lower_thresh_val = otsu_thresh_val * 0.5;
 	// Canny com valores definidos pelo otsu stackoverflow.com/questions/4292249/automatic-calculation-of-low-and-high-thresholds-for-the-canny-operation-in-open
 	Canny(imageToDetect, imageToDetect, lower_thresh_val, high_thresh_val);
@@ -129,25 +130,44 @@ void detect_edges(Mat &imageToDetect){
 
 	std::sort(contours.begin(), contours.end(), contour_sorter());
 
+	if (contours[0][0].x - 5 >= 0) {
+		rectangle(regionOfInterestEmpty, Point(3, 0), Point(contours[0][0].x - 5, imageToDetect.size().height / 2), CV_RGB(255, 255, 255), 1, 8, 0);
+		rectangle(regionOfInterest, Point(3, 0), Point(contours[0][0].x - 5, imageToDetect.size().height / 2), CV_RGB(255, 255, 255), 1, 8, 0);
+		matchTemplate(Point(3, 0), Point(contours[0][0].x - 5, imageToDetect.size().height / 2));
+		rect.push_back(Point(3, 0));
+		rect.push_back(Point(contours[0][0].x - 5, imageToDetect.size().height / 2));
+	}
+	else {
+		rectangle(regionOfInterestEmpty, Point(3, 0), Point(0, imageToDetect.size().height / 2), CV_RGB(255, 255, 255), 1, 8, 0);
+		rectangle(regionOfInterest, Point(3, 0), Point(0, imageToDetect.size().height / 2), CV_RGB(255, 255, 255), 1, 8, 0);
+		matchTemplate(Point(3, 0), Point(0, imageToDetect.size().height / 2));
+		rect.push_back(Point(3, 0));
+		rect.push_back(Point(0, imageToDetect.size().height / 2));
+	}
 
-	rectangle(regionOfInterestEmpty, Point(3, 0), Point(contours[0][0].x - 5, imageToDetect.size().height / 2), CV_RGB(255, 255, 255), 1, 8, 0);
-	rectangle(regionOfInterest, Point(3, 0), Point(contours[0][0].x - 5, imageToDetect.size().height / 2), CV_RGB(255, 255, 255), 1, 8, 0);
-	matchTemplate(Point(3, 0), Point(contours[0][0].x - 5, imageToDetect.size().height / 2));
 
-	rect.push_back(Point(3, 0));
-	rect.push_back(Point(contours[0][0].x - 5, imageToDetect.size().height / 2));
 
 	for (int i = 0; i < contours.size() - 1; i++)
 	{
-		if ((contours[i + 1][0].x - contours[i][0].x) <= 10)
+		if ((contours[i + 1][0].x - contours[i][0].x) <= 15)
 			continue;
 		else {
-			rectangle(regionOfInterestEmpty, Point(contours[i][0].x + 3, 0), Point(contours[i + 1][0].x - 3, imageToDetect.size().height / 2), CV_RGB(255, 255, 255), 1, 8, 0);
-			rectangle(regionOfInterest, Point(contours[i][0].x + 3, 0), Point(contours[i + 1][0].x - 3, imageToDetect.size().height / 2), CV_RGB(255, 255, 255), 1, 8, 0);
-			rect.push_back(Point(contours[i][0].x + 3, 0));
-			rect.push_back(Point(contours[i + 1][0].x - 3, imageToDetect.size().height / 2));
+			if (contours[i + 1][0].x - 3 >= 0) {
+				rectangle(regionOfInterestEmpty, Point(contours[i][0].x + 3, 0), Point(contours[i + 1][0].x - 3, imageToDetect.size().height / 2), CV_RGB(255, 255, 255), 1, 8, 0);
+				rectangle(regionOfInterest, Point(contours[i][0].x + 3, 0), Point(contours[i + 1][0].x - 3, imageToDetect.size().height / 2), CV_RGB(255, 255, 255), 1, 8, 0);
+				rect.push_back(Point(contours[i][0].x + 3, 0));
+				rect.push_back(Point(contours[i + 1][0].x - 3, imageToDetect.size().height / 2));
 
-			matchTemplate(Point(contours[i][0].x + 3, 0), Point(contours[i + 1][0].x - 3, imageToDetect.size().height / 2));
+				matchTemplate(Point(contours[i][0].x + 3, 0), Point(contours[i + 1][0].x - 3, imageToDetect.size().height / 2));
+			}
+			else {
+				rectangle(regionOfInterestEmpty, Point(contours[i][0].x + 3, 0), Point(0, imageToDetect.size().height / 2), CV_RGB(255, 255, 255), 1, 8, 0);
+				rectangle(regionOfInterest, Point(contours[i][0].x + 3, 0), Point(0, imageToDetect.size().height / 2), CV_RGB(255, 255, 255), 1, 8, 0);
+				rect.push_back(Point(contours[i][0].x + 3, 0));
+				rect.push_back(Point(0, imageToDetect.size().height / 2));
+
+				matchTemplate(Point(contours[i][0].x + 3, 0), Point(0, imageToDetect.size().height / 2));
+			}
 		}
 		//rectangle(imageToDetect, Point pt1, Point pt2, const Scalar& color, int thickness = 1, int lineType = 8, int shift = 0)
 	}
@@ -191,25 +211,53 @@ int main(int argc, char** argv)
 	imshow("Parking Lot", image); // Show our image inside it.
 	imshow("Empty Parking Lot", imageEmpty); // Show our image inside it.
 	cout << "Select two points to create the region of interest and press ESC" << endl;
-	while (cv::waitKey(1) != 27);
-	cout << roi[0].x << " " << roi[0].y << " " << roi[1].x << " " << roi[1].y;
 
-	regionOfInterest = image(Rect(roi[0].x, roi[0].y, roi[1].x - roi[0].x, (roi[1].y - roi[0].y) * 2));
-	regionOfInterestEmpty = imageEmpty(Rect(roi[0].x, roi[0].y, roi[1].x - roi[0].x, (roi[1].y - roi[0].y) * 2));
-	cvtColor(regionOfInterestEmpty, greyroiempty, COLOR_RGB2GRAY);
+	while (nRois <= 5) {
+
+		while (cv::waitKey(1) != 32);
+
+		if (nRois > 1) {
+			cout << "asd";
+			destroyWindow("Contours");
+			destroyWindow("ROI CANNY");
+			destroyWindow("REGION OF INTEREST EMPTY");
+			destroyWindow("REGION OF INTEREST");
+			regionOfInterest.release(); 
+			regionOfInterestEmpty.release();
+			greyroi.release();
+			greyroiempty.release();
+			detected_edges.release();
+		}
+
+		cout << roi[0].x << " " << roi[0].y << " " << roi[1].x << " " << roi[1].y;
+
+		regionOfInterest = image(Rect(roi[0].x, roi[0].y, roi[1].x - roi[0].x, (roi[1].y - roi[0].y) * 2));
+		regionOfInterestEmpty = imageEmpty(Rect(roi[0].x, roi[0].y, roi[1].x - roi[0].x, (roi[1].y - roi[0].y) * 2));
+		cvtColor(regionOfInterestEmpty, greyroiempty, COLOR_RGB2GRAY);
+
+		roi.clear();
+
+		detect_edges(detected_edges);
+
+		//destroyWindow("Display Window");
+
+		//namedWindow("ROI GREY", WINDOW_AUTOSIZE);// Create a window for display.
+
+		//namedWindow("ROY CANNY", WINDOW_AUTOSIZE);// Create a window for display.
+
+		namedWindow("ROI CANNY", WINDOW_AUTOSIZE);
+		namedWindow("REGION OF INTEREST EMPTY", WINDOW_AUTOSIZE);
+		namedWindow("REGION OF INTEREST", WINDOW_AUTOSIZE);
+
+		imshow("ROI CANNY", detected_edges); // Show our image inside it.
+		imshow("REGION OF INTEREST EMPTY", regionOfInterestEmpty);
+		imshow("REGION OF INTEREST", regionOfInterest); // Show our image inside it.
+		
+		nRois++;
+
+	}
+
 	
-	roi.clear();
-	
-	detect_edges(detected_edges);
-
-	//destroyWindow("Display Window");
-
-	//namedWindow("ROI GREY", WINDOW_AUTOSIZE);// Create a window for display.
-
-								 //namedWindow("ROY CANNY", WINDOW_AUTOSIZE);// Create a window for display.
-	imshow("ROI CANNY", detected_edges); // Show our image inside it.
-	imshow("REGION OF INTEREST EMPTY", regionOfInterestEmpty);
-	imshow("REGION OF INTEREST", regionOfInterest); // Show our image inside it.
 
 	waitKey(0); // Wait for a keystroke in the window
 
