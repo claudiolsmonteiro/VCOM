@@ -16,6 +16,7 @@ void train(vector<string> &listOfImages);
 void bagOfWords(vector<string> &listOfImages, vector<string> &listOfTestImages);
 void read_csv(const string& filename, vector<string> label);
 void applySVM(vector<string> &listOfTestImages, BOWImgDescriptorExtractor bowExtractor);
+void applyKNN(vector<string> &listOfTestImages, BOWImgDescriptorExtractor bowExtractor);
 Mat allTrainDescriptors, bagofWords, labels;
 //the number of bags
 int dictionarySize = 150;
@@ -149,7 +150,8 @@ void bagOfWords(vector<string> &listOfImages, vector<string> &listOfTestImages) 
 		bagofWords.push_back(descriptors);
 	}
 	read_csv("trainLabels.csv", label);
-	applySVM(listOfTestImages, bowExtractor);
+	//applySVM(listOfTestImages, bowExtractor);
+	applyKNN(listOfTestImages, bowExtractor);
 }
 
 void applySVM(vector<string> &listOfTestImages, BOWImgDescriptorExtractor bowExtractor) {
@@ -189,7 +191,7 @@ void applySVM(vector<string> &listOfTestImages, BOWImgDescriptorExtractor bowExt
 	CvSVMParams paramsPolynomial;
 	paramsPolynomial.svm_type = CvSVM::C_SVC;
 	paramsPolynomial.kernel_type = CvSVM::POLY;
-	paramsPolynomial.degree = 3; // for poly
+	paramsPolynomial.degree = 2; // for poly
 	paramsPolynomial.term_crit = tc;
 
 	CvSVM SVMPolynomial;
@@ -233,6 +235,42 @@ void applySVM(vector<string> &listOfTestImages, BOWImgDescriptorExtractor bowExt
 			svmRBF << i + 1 << "," << label[resultRBF] << "\n";
 			resultPolinomial = SVMPolynomial.predict(descriptors);
 			svmPoly << i + 1 << "," << label[resultPolinomial] << "\n";
+		}
+	}
+}
+
+void applyKNN(vector<string> &listOfTestImages, BOWImgDescriptorExtractor bowExtractor) {
+	cout << "applying KNN" << endl;
+
+	const int K = 10;
+	cout << "knn.train" << endl;
+	CvKNearest knn;
+	knn.train(bagofWords, labels, Mat());
+
+	Ptr<FeatureDetector> detector = FeatureDetector::create("SIFT");
+	Mat image;
+	Mat descriptors;
+	std::vector<KeyPoint> keypoints;
+	ofstream kNN("KNN.csv");
+	kNN << "id,label\n";
+
+	srand(time(NULL));
+	for (int i = 0; i<listOfTestImages.size(); i++)
+	{
+		if (!openImage("test/" + listOfTestImages[i], image))
+			continue;
+		cout << "Computing from Test image: " + listOfTestImages[i] + " of " + to_string(listOfTestImages.size()) << endl;
+
+		detector->detect(image, keypoints);
+		bowExtractor.compute(image, keypoints, descriptors);
+		if (descriptors.cols != dictionarySize) {
+			kNN << i + 1 << "," << label[rand() % 10] << "\n";
+			continue;
+		}
+		else {
+			float result;
+			result = knn.find_nearest(descriptors,K);
+			kNN << i + 1 << "," << label[result] << "\n";
 		}
 	}
 }
