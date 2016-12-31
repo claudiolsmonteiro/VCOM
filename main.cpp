@@ -6,6 +6,7 @@
 #include <opencv2/core/core.hpp>
 #include <string.h>
 #include <fstream>
+#include <random>
 
 using namespace cv;
 using namespace std;
@@ -17,7 +18,7 @@ void read_csv(const string& filename, vector<string> label);
 void applySVM(vector<string> &listOfTestImages, BOWImgDescriptorExtractor bowExtractor);
 Mat allTrainDescriptors, bagofWords, labels;
 //the number of bags
-int dictionarySize = 200;
+int dictionarySize = 150;
 //define Term Criteria
 TermCriteria tc(CV_TERMCRIT_ITER, 100, 0.001);
 vector<int> emptydescriptors;
@@ -152,25 +153,64 @@ void bagOfWords(vector<string> &listOfImages, vector<string> &listOfTestImages) 
 }
 
 void applySVM(vector<string> &listOfTestImages, BOWImgDescriptorExtractor bowExtractor) {
-	cout << "applying SVM" << endl;
-	CvSVMParams params;
-	params.svm_type = CvSVM::C_SVC;
-	params.kernel_type = CvSVM::LINEAR;
-	params.term_crit = tc;
 
-	CvSVM SVM;
+	/*
+	In practice, I suggest using SVM with different kernels before drawing the conclusion. Please try at least the following:
+	Linear
+	RBF
+	Polynomial
+	Chi-Squared
+	*/
+
+	cout << "applying Linear SVM" << endl;
+	CvSVMParams paramsLinear;
+	paramsLinear.svm_type = CvSVM::C_SVC;
+	paramsLinear.kernel_type = CvSVM::LINEAR;
+	paramsLinear.term_crit = tc;
+
+	CvSVM SVMLinear;
 	cout << "svm.train" << endl;
-	SVM.train(bagofWords, labels, Mat(), Mat(), params);
-	SVM.save("svm.xml");
+	SVMLinear.train(bagofWords, labels, Mat(), Mat(), paramsLinear);
+	//SVM.save("svm.xml");
 
+	cout << "applying RBF SVM" << endl;
+	CvSVMParams paramsRBF;
+	paramsRBF.svm_type = CvSVM::C_SVC;
+	paramsRBF.kernel_type = CvSVM::RBF;
+	paramsRBF.term_crit = tc;
+
+	CvSVM SVMRBF;
+	cout << "svm.train" << endl;
+	SVMRBF.train(bagofWords, labels, Mat(), Mat(), paramsRBF);
+	//SVMRBF.train_auto(bagofWords, labels, Mat(), Mat(),paramsRBF);
+	//SVM.save("svm.xml");
+
+	cout << "applying Polynomial SVM" << endl;
+	CvSVMParams paramsPolynomial;
+	paramsPolynomial.svm_type = CvSVM::C_SVC;
+	paramsPolynomial.kernel_type = CvSVM::POLY;
+	paramsPolynomial.degree = 3; // for poly
+	paramsPolynomial.term_crit = tc;
+
+	CvSVM SVMPolynomial;
+	cout << "svm.train" << endl;
+	SVMPolynomial.train(bagofWords, labels, Mat(), Mat(), paramsPolynomial);
+	//SVM.save("svm.xml");
 
 
 	Ptr<FeatureDetector> detector = FeatureDetector::create("SIFT");
 	Mat image;
 	Mat descriptors;
 	std::vector<KeyPoint> keypoints;
-	ofstream svm_linear_sub("svm_linear_sub.csv");
-	svm_linear_sub << "id,label\n";
+	ofstream svmLinear("SVM LINEAR.csv");
+	svmLinear << "id,label\n";
+	ofstream svmRBF("SVM RBF.csv");
+	svmRBF << "id,label\n";
+	ofstream svmPoly("SVM POLINOMIAL.csv");
+	svmPoly << "id,label\n";
+
+
+	srand(time(NULL));
 	for (int i = 0; i<listOfTestImages.size(); i++)
 	{
 		if (!openImage("test/" + listOfTestImages[i], image))
@@ -179,12 +219,20 @@ void applySVM(vector<string> &listOfTestImages, BOWImgDescriptorExtractor bowExt
 
 		detector->detect(image, keypoints);
 		bowExtractor.compute(image, keypoints, descriptors);
-		if (descriptors.cols != dictionarySize)
+		if (descriptors.cols != dictionarySize) {
+			svmLinear << i + 1 << "," << label[rand() % 10 ] << "\n";
+			svmRBF << i + 1 << "," << label[rand() % 10] << "\n";
+			svmPoly << i + 1 << "," << label[rand() % 10] << "\n";
 			continue;
+		}
 		else {
-			float result;
-			result = SVM.predict(descriptors);
-			svm_linear_sub << i + 1 << "," << label[result] << "\n";
+			float resultLinear,resultRBF, resultPolinomial;
+			resultLinear = SVMLinear.predict(descriptors);
+			svmLinear << i + 1 << "," << label[resultLinear] << "\n";
+			resultRBF = SVMRBF.predict(descriptors);
+			svmRBF << i + 1 << "," << label[resultRBF] << "\n";
+			resultPolinomial = SVMPolynomial.predict(descriptors);
+			svmPoly << i + 1 << "," << label[resultPolinomial] << "\n";
 		}
 	}
 }
