@@ -27,7 +27,7 @@ Mat allTrainDescriptors, bagofWords, labels;
 //the number of bags
 int dictionarySize = 200;
 //define Term Criteria
-TermCriteria tc(CV_TERMCRIT_ITER, 100, 0.001);
+TermCriteria tc(CV_TERMCRIT_ITER, 500, 0.001);
 //vector with the training elements that will be ignored for having 0 Descriptors
 vector<int> emptydescriptors;
 vector<string> label;
@@ -198,6 +198,7 @@ void bagOfWords(vector<string> &listOfImages, vector<string> &listOfTestImages) 
 
 void classify(vector<string> &listOfTestImages,BOWImgDescriptorExtractor bowExtractor) {
     /*
+	StackOF-
      In practice, I suggest using SVM with different kernels before drawing the conclusion. Please try at least the following:
      Linear
      RBF
@@ -237,9 +238,10 @@ void classify(vector<string> &listOfTestImages,BOWImgDescriptorExtractor bowExtr
     
     //SVM.save("svm.xml");
     const int K = 10;
-    CvKNearest knn;
+    CvKNearest knn,knn5;
     //.csv files needed for validation on the kagle website
-    ofstream kNN("KNN "+ to_string(dictionarySize) +" K "+ to_string(K)+".csv");
+    ofstream kNN5("KNN "+ to_string(dictionarySize) +" K 5.csv");
+	ofstream kNN("KNN " + to_string(dictionarySize) + " K " + to_string(K) + ".csv");
     ofstream svmLinear("SVM LINEAR "+ to_string(dictionarySize)+".csv");
     ofstream svmRBF("SVM RBF "+ to_string(dictionarySize)+".csv");
     ofstream svmPoly("SVM POLYNOMIAL "+ to_string(dictionarySize)+".csv");
@@ -247,29 +249,31 @@ void classify(vector<string> &listOfTestImages,BOWImgDescriptorExtractor bowExtr
     //svm/knn training depending on the user previous choices
     if ( choice == 0 || choice == 1) {
         cout << "applying Knn" << endl;
+		kNN5 << "id,label" << endl;
         kNN << "id,label" << endl;
         cout << "knn.train" << endl;
         knn.train(bagofWords, labels, Mat());
+		knn5.train(bagofWords, labels, Mat());
     }
     if( choice == 0 || choice == 2) {
         if( choiceSVM == 0 || choiceSVM == 1) {
             cout << "applying Linear SVM" << endl;
             cout << "svm.train" << endl;
             SVMLinear.train(bagofWords, labels, Mat(), Mat(), paramsLinear);
-            svmLinear << "id,label\n";
+            svmLinear << "id,label" << endl;
         }
         if( choiceSVM == 0 || choiceSVM == 2) {
             cout << "applying RBF SVM" << endl;
             cout << "svm.train" << endl;
             SVMRBF.train(bagofWords, labels, Mat(), Mat(), paramsRBF);
             //SVMRBF.train_auto(bagofWords, labels, Mat(), Mat(),paramsRBF);
-            svmRBF << "id,label\n";
+            svmRBF << "id,label" << endl;
         }
         if( choiceSVM == 0 || choiceSVM == 3) {
             cout << "applying Polynomial SVM" << endl;
             cout << "svm.train" << endl;
             SVMPolynomial.train(bagofWords, labels, Mat(), Mat(), paramsPolynomial);
-            svmPoly << "id,label\n";
+            svmPoly << "id,label" << endl;
         }
     }
     Mat image;
@@ -277,7 +281,6 @@ void classify(vector<string> &listOfTestImages,BOWImgDescriptorExtractor bowExtr
     vector<KeyPoint> keypoints;
 
     
-    //srand(time(NULL));
     
     //calculation of the test images
     for (int i = 0; i<listOfTestImages.size(); i++)
@@ -291,17 +294,18 @@ void classify(vector<string> &listOfTestImages,BOWImgDescriptorExtractor bowExtr
         // if it has no descriptors assign the rest of the division from the iterator with the number of labels
         if (descriptors.cols != dictionarySize) {
             if ( choice == 0 || choice == 1) {
-                kNN << i + 1 << "," << label[i % 10] << "\n";
+				kNN5 << i + 1 << "," << label[i % 10] << endl;
+                kNN << i + 1 << "," << label[i % 10] << endl;
             }
             if( choice == 0 || choice == 2) {
                 if( choiceSVM == 0 || choiceSVM == 1) {
-                    svmLinear << i + 1 << "," << label[i % 10 ] << "\n";
+                    svmLinear << i + 1 << "," << label[i % 10 ] << endl;
                 }
                 if( choiceSVM == 0 || choiceSVM == 2) {
-                    svmRBF << i + 1 << "," << label[i % 10] << "\n";
+                    svmRBF << i + 1 << "," << label[i % 10] << endl;
                 }
                 if( choiceSVM == 0 || choiceSVM == 3) {
-                    svmPoly << i + 1 << "," << label[i % 10] << "\n";
+                    svmPoly << i + 1 << "," << label[i % 10] << endl;
                 }
             }
         }
@@ -309,21 +313,26 @@ void classify(vector<string> &listOfTestImages,BOWImgDescriptorExtractor bowExtr
             // find/ predict the correct label and store the image number + "," + the predicted label
             float resultKnn, resultLinear,resultRBF, resultPolinomial;
             if ( choice == 0 || choice == 1) {
-                resultKnn = knn.find_nearest(descriptors,K);
-                kNN << i + 1 << "," << label[resultKnn] << "\n";
+				Mat currentLabel(1, 1, CV_32FC1);
+				knn.find_nearest(descriptors, K, &currentLabel);
+				knn5.find_nearest(descriptors, 5, &currentLabel);
+                //resultKnn = knn.find_nearest(descriptors,K);
+				resultKnn = currentLabel.at<float>(0, 0);
+                kNN << i + 1 << "," << label[resultKnn] << endl;
+				kNN5 << i + 1 << "," << label[resultKnn] << endl;
             }
             if( choice == 0 || choice == 2) {
                 if( choiceSVM == 0 || choiceSVM == 1) {
                     resultLinear = SVMLinear.predict(descriptors);
-                    svmLinear << i + 1 << "," << label[resultLinear] << "\n";
+                    svmLinear << i + 1 << "," << label[resultLinear] << endl;
                 }
                 if( choiceSVM == 0 || choiceSVM == 2) {
                     resultRBF = SVMRBF.predict(descriptors);
-                    svmRBF << i + 1 << "," << label[resultRBF] << "\n";
+                    svmRBF << i + 1 << "," << label[resultRBF] << endl;
                 }
                 if( choiceSVM == 0 || choiceSVM == 3) {
                     resultPolinomial = SVMPolynomial.predict(descriptors);
-                    svmPoly << i + 1 << "," << label[resultPolinomial] << "\n";
+                    svmPoly << i + 1 << "," << label[resultPolinomial] << endl;
                 }
             }
         }
